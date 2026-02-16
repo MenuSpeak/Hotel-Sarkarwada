@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -841,6 +840,30 @@
             color: var(--gold2);
         }
 
+        .delivery-charge-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            color: var(--muted);
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .grand-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-top: 2px solid rgba(212, 175, 55, 0.3);
+            font-weight: 700;
+            font-size: 20px;
+        }
+
+        .grand-total-amount {
+            color: var(--gold2);
+        }
+
         .cart-actions {
             display: flex;
             flex-direction: column;
@@ -963,6 +986,13 @@
             height: 18px;
         }
 
+        .delivery-charge-badge {
+            font-size: 12px;
+            margin-left: 4px;
+            color: #ff9800;
+            font-weight: 600;
+        }
+
         /* Delivery Forms */
         .delivery-form {
             display: none;
@@ -1016,6 +1046,19 @@
 
         .form-input::placeholder {
             color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Delivery Charge Info */
+        .delivery-charge-info {
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 6px;
+            color: #ff9800;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         /* Customer Details Summary */
@@ -1275,7 +1318,7 @@
                             <path
                                 d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        Home Delivery
+                        Home Delivery <span class="delivery-charge-badge">(+₹20)</span>
                     </button>
                 </div>
 
@@ -1290,6 +1333,12 @@
 
                 <!-- Home Delivery Form -->
                 <div class="delivery-form" id="homeDeliveryForm">
+                    <div class="delivery-charge-info">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 12H4M12 4v16" />
+                        </svg>
+                        <span>Delivery charge of <strong>₹20</strong> will be added to your total</span>
+                    </div>
                     <div class="form-group">
                         <label class="form-label" for="customerName">Full Name</label>
                         <input type="text" id="customerName" class="form-input" placeholder="Enter your full name" />
@@ -1317,9 +1366,19 @@
                 <div class="cart-empty" id="cartEmpty">Your cart is empty</div>
             </div>
 
-            <div class="cart-total">
-                <span>Total:</span>
-                <span class="total-amount" id="cartTotal">₹0</span>
+            <div class="delivery-charge-total" id="deliveryChargeRow" style="display: none;">
+                <span>Delivery Charge</span>
+                <span>+ ₹20</span>
+            </div>
+
+            <div class="cart-total" id="subtotalRow">
+                <span>Subtotal:</span>
+                <span class="total-amount" id="cartSubtotal">₹0</span>
+            </div>
+
+            <div class="grand-total" id="grandTotalRow">
+                <span>Grand Total:</span>
+                <span class="grand-total-amount" id="cartGrandTotal">₹0</span>
             </div>
 
             <div class="cart-actions">
@@ -1342,7 +1401,7 @@
     </div>
 
     <script>
-        // Menu Data - FIXED VERSION
+        // Menu Data
         const data = [
    
 
@@ -1453,13 +1512,19 @@
         // Cart functionality
         let cart = [];
         let deliveryType = 'restaurant'; // Default to restaurant
+        const DELIVERY_CHARGE = 20;
+        
         const cartButton = document.getElementById('cartButton');
         const cartModal = document.getElementById('cartModal');
         const closeCart = document.getElementById('closeCart');
         const cartItems = document.getElementById('cartItems');
         const cartEmpty = document.getElementById('cartEmpty');
         const cartCount = document.getElementById('cartCount');
-        const cartTotal = document.getElementById('cartTotal');
+        const cartSubtotal = document.getElementById('cartSubtotal');
+        const cartGrandTotal = document.getElementById('cartGrandTotal');
+        const deliveryChargeRow = document.getElementById('deliveryChargeRow');
+        const subtotalRow = document.getElementById('subtotalRow');
+        const grandTotalRow = document.getElementById('grandTotalRow');
         const clearCart = document.getElementById('clearCart');
         const whatsappOrder = document.getElementById('whatsappOrder');
         const addAnotherItem = document.getElementById('addAnotherItem');
@@ -1479,6 +1544,9 @@
 
             // Update details summary
             updateCustomerDetailsSummary();
+            
+            // Update cart display to show/hide delivery charge
+            updateCart();
         }
 
         // Update customer details summary
@@ -1611,16 +1679,26 @@
             if (cart.length === 0) {
                 cartEmpty.style.display = 'block';
                 cartItems.innerHTML = '';
+                
+                // Hide all total rows
+                subtotalRow.style.display = 'none';
+                deliveryChargeRow.style.display = 'none';
+                grandTotalRow.style.display = 'none';
+                
+                cartSubtotal.textContent = '₹0';
+                cartGrandTotal.textContent = '₹0';
             } else {
                 cartEmpty.style.display = 'none';
 
                 let itemsHTML = '';
-                let totalAmount = 0;
+                let subtotalAmount = 0;
 
                 cart.forEach(item => {
-                    const price = parseInt(item.price.replace('₹', ''));
+                    // Parse price correctly (handle "RS" suffix)
+                    const priceStr = item.price.replace(' RS', '');
+                    const price = parseInt(priceStr);
                     const itemTotal = price * item.quantity;
-                    totalAmount += itemTotal;
+                    subtotalAmount += itemTotal;
 
                     itemsHTML += `
             <div class="cart-item">
@@ -1639,7 +1717,22 @@
                 });
 
                 cartItems.innerHTML = itemsHTML;
-                cartTotal.textContent = `₹${totalAmount}`;
+                
+                // Show/hide delivery charge based on delivery type
+                if (deliveryType === 'home') {
+                    deliveryChargeRow.style.display = 'flex';
+                    const grandTotal = subtotalAmount + DELIVERY_CHARGE;
+                    cartSubtotal.textContent = `₹${subtotalAmount}`;
+                    cartGrandTotal.textContent = `₹${grandTotal}`;
+                } else {
+                    deliveryChargeRow.style.display = 'none';
+                    cartSubtotal.textContent = `₹${subtotalAmount}`;
+                    cartGrandTotal.textContent = `₹${subtotalAmount}`;
+                }
+                
+                // Show total rows
+                subtotalRow.style.display = 'flex';
+                grandTotalRow.style.display = 'flex';
             }
         }
 
@@ -1705,32 +1798,40 @@
             if (deliveryType === 'restaurant') {
                 const tableNumber = document.getElementById('tableNumber').value.trim();
 
-                message += `**Delivery Type:** Dine-in\n`;
-                message += `**Table Number:** ${tableNumber}\n\n`;
+                message += `*Delivery Type:* Dine-in\n`;
+                message += `*Table Number:* ${tableNumber}\n\n`;
             } else {
                 const customerName = document.getElementById('customerName').value.trim();
                 const customerMobile = document.getElementById('customerMobile').value.trim();
                 const customerAddress = document.getElementById('customerAddress').value.trim();
 
-                message += `**Delivery Type:** Home Delivery\n`;
-                message += `**Name:** ${customerName}\n`;
-                message += `**Mobile:** ${customerMobile}\n`;
-                message += `**Address:** ${customerAddress}\n\n`;
+                message += `*Delivery Type:* Home Delivery\n`;
+                message += `*Name:* ${customerName}\n`;
+                message += `*Mobile:* ${customerMobile}\n`;
+                message += `*Address:* ${customerAddress}\n\n`;
             }
 
-            message += `**Order Details:**\n`;
+            message += `*Order Details:*\n`;
 
+            let subtotalAmount = 0;
+            
             cart.forEach(item => {
+                const priceStr = item.price.replace(' RS', '');
+                const price = parseInt(priceStr);
+                subtotalAmount += price * item.quantity;
                 message += `• ${item.name} - ${item.quantity} x ${item.price}\n`;
             });
 
-            const totalAmount = cart.reduce((sum, item) => {
-                const price = parseInt(item.price.replace('₹', ''));
-                return sum + (price * item.quantity);
-            }, 0);
-
-            message += `\n**Total Amount:** ₹${totalAmount}\n\n`;
-            message += `Thank you!`;
+            message += `\n*Subtotal:* ₹${subtotalAmount}`;
+            
+            if (deliveryType === 'home') {
+                message += `\n*Delivery Charge:* + ₹20`;
+                message += `\n*Grand Total:* ₹${subtotalAmount + DELIVERY_CHARGE}`;
+            } else {
+                message += `\n*Grand Total:* ₹${subtotalAmount}`;
+            }
+            
+            message += `\n\nThank you!`;
 
             // Encode the message for WhatsApp URL
             const encodedMessage = encodeURIComponent(message);
